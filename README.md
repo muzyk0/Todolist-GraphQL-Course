@@ -1,251 +1,333 @@
 # Мини курс по GraphQL
 
-> Вам не удалось запустить сервер, веб или что то пошло не так. А может у вас есть вопросы?
+> Вам не удалось запустить сервер, веб или что то пошло не так? А может у вас есть вопросы?
 >
 > [Telegram](https://t.me/ru9art) - `@ru9art`
 
-## Для работы с API сервера нам понадобится сам сервер, Docker, Docker-Compose, Bash
+## В этом уроке настроем регистрацию и авторизацию пользователя.
 
-> Пока не получилось задеплоить сервер на хостинг
->
-> Скачать сервер можно по [ссылке](https://github.com/muzyk0/Todolist-GraphQL-server). Как его запустить написано в `README.md`
->
-> Но так же продублирую здесь.
->
-> 1. В папке `deploy/dev` продублируйте файл `.env.example` и переименуйте в `.env`
->
-> 2. Впишите любые символы в `ACCESS_TOKEN_SECRET=` и `REFRESH_TOKEN_SECRET=`
->
-> например `ACCESS_TOKEN_SECRET=234sdsdf23fmn1v51fon`
->
-> 3. Запустите `bash create_docker_db.sh` и дождитесь когда выполнение команды закончится
->
-> 4. Запустите `start_dev_docker.sh`
+#### Так как мы работает с graphQL, то у нас есть уже готовая документация API и находится она по адресу [http://localhost:5000/graphql](http://localhost:5000/graphql)
 
-Для начала создадим Next.JS проект:
+### 1. Создание страниц входа, регистрации.
+
+`1.1` Нам понадобятся библиотеки `React Router` и `React Hook Form` (опционально)
 
 ```bash
-npx create-react-app my-app --template typescript --use-npm --example "https://github.com/muzyk0/TodoList-GraphQL-Web-NextJs"
-```
-
-А теперь проверим что все работает запустив проект
-
-```bash
-yarn dev
-```
-
-Откройте [http://localhost:3000](http://localhost:3000) в своем браузере что бы увидеть результат.
-
-## В первую очередь настроем наш Apollo Client
-
-1. Добавим нужные зависимости
-
-```
-npm install @apollo/client graphql jwt-decode apollo-link-token-refresh
+npm install react-router-dom@6 react-hook-form
 # or
-yarn add @apollo/client graphql jwt-decode apollo-link-token-refresh
+yarn add react-router-dom@6 react-hook-form
 ```
 
-2. Мы будет сохранять Access Token в стейт менеджере и по этому давайте сразу подготовим для этого функцию в файле, а хранить пока что мы будет в обычной переменной.
+`1.2` Страницу регистрации возьмем [отсюда](https://react-hook-form.com/get-started#TypeScript) и немного перепишем.
+Поля которые мы будем отправлять на сервер найдете в [документации](http://localhost:5000/graphql) и попробуйте сделать сами.
 
-```typescript
-export let accessToken = "";
+Перейдите по адресу [http://localhost:5000/graphql](http://localhost:5000/graphql) справа у нас 2 кнопки `DOCS` и `SCHEMA`. Нам нужна только вкладка `DOCS`, найдите в MUTATIONS register(...): User! и посмотрите какие поля мы должны передать и какие можем запросить.
 
-export const setAccessToken = (token: string) => {
-    accessToken = token;
-};
+> Знак `!` в конце `User!` означает, что мутация обязана возвращать данные типа User. Это могут быть как все поля так и несколько
 
-export const getAccessToken = () => {
-    return accessToken;
-};
+А если лень, то вот готовый код страницы регистрации.
+
+Добавьте в `srs/styles/App.module.css`
+
+```css
+.FormWrapper {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+}
+
+.FormWrapper > form {
+    display: flex;
+    flex-direction: column;
+    row-gap: 10px;
+}
 ```
 
-3. Создадим файл `lib/apolloClient.ts` в папке `src` и добавьте данный код.
-   Тут производится магия подключения Apollo, проверки и перезапроса токета авторизации.
-
-```typescript
-import {
-    ApolloLink,
-    HttpLink,
-    ApolloClient,
-    InMemoryCache,
-    Observable,
-} from "@apollo/client";
-import { getAccessToken, setAccessToken } from "./accessToken";
-import { onError } from "@apollo/client/link/error";
-import { TokenRefreshLink } from "apollo-link-token-refresh";
-import jwtDecode from "jwt-decode";
-
-export const createApolloClient = () => {
-    const requestLink = new ApolloLink(
-        (operation, forward) =>
-            new Observable((observer) => {
-                let handle: any;
-                Promise.resolve(operation)
-                    .then((operation) => {
-                        const accessToken = getAccessToken();
-                        if (accessToken) {
-                            operation.setContext({
-                                headers: {
-                                    authorization: `bearer ${accessToken}`,
-                                },
-                            });
-                        }
-                    })
-                    .then(() => {
-                        handle = forward(operation).subscribe({
-                            next: observer.next.bind(observer),
-                            error: observer.error.bind(observer),
-                            complete: observer.complete.bind(observer),
-                        });
-                    })
-                    .catch(observer.error.bind(observer));
-
-                return () => {
-                    if (handle) handle.unsubscribe();
-                };
-            })
-    );
-
-    const client = new ApolloClient({
-        ssrMode: typeof window === undefined,
-        link: ApolloLink.from([
-            new TokenRefreshLink({
-                accessTokenField: "accessToken",
-                isTokenValidOrUndefined: () => {
-                    const token = getAccessToken();
-
-                    if (!token) {
-                        return true;
-                    }
-
-                    try {
-                        const { exp } = jwtDecode(token) as any;
-                        if (Date.now() >= exp * 1000) {
-                            return false;
-                        } else {
-                            return true;
-                        }
-                    } catch {
-                        return false;
-                    }
-                },
-                fetchAccessToken: () => {
-                    const uri = new URL(
-                        "/refresh_token",
-                        "http://localhost:5000/"
-                    );
-                    return fetch(uri.toString(), {
-                        method: "POST",
-                        credentials: "include",
-                    });
-                },
-                handleFetch: (accessToken) => {
-                    setAccessToken(accessToken);
-                },
-                handleError: (err) => {
-                    console.warn(
-                        "Your refresh token is invalid. Try to relogin"
-                    );
-                    console.error(err);
-                },
-            }),
-            onError(({ graphQLErrors, networkError }) => {
-                console.log(graphQLErrors);
-                console.log(networkError);
-            }),
-            requestLink,
-            new HttpLink({
-                uri: new URL("/graphql", "http://localhost:5000/").toString(),
-                credentials: "include",
-            }),
-        ]),
-        defaultOptions: {
-            // For Hook useQuery
-            watchQuery: {
-                fetchPolicy: "cache-first",
-                errorPolicy: "all",
-            },
-            // For client.query()
-            query: {
-                fetchPolicy: "network-only",
-                errorPolicy: "all",
-            },
-            mutate: {
-                // fetchPolicy: "no-cache",
-                errorPolicy: "all",
-            },
-        },
-        cache: new InMemoryCache(),
-    });
-
-    return client;
-};
-```
-
-4. Теперь подключим Apollo Provider в `index.tsx`
-
-```typescript
-import { createApolloClient } from "./lib/apolloClient";
-
-ReactDOM.render(
-    <ApolloProvider client={createApolloClient()}>
-        <App />
-    </ApolloProvider>,
-    document.getElementById("root")
-);
-```
-
-5. Так же в компоненте `App` при первой отрисовки мы будем запрашивать у сервера актуальный accessToken и сохранять в глобальном состоянии приложения, по этому создадим кастомный хук `hooks/useRefreshToken.ts`
+А страницу регистрации в `srs/pages/Register.tsx`
 
 ```typescript
 import React from "react";
-import { setAccessToken } from "../lib/accessToken";
+import { useForm } from "react-hook-form";
+import { Link } from "react-router-dom";
+import styles from "../styles/App.module.css";
 
-export const useRefreshToken = () => {
-    const [loading, setLoading] = React.useState(true);
+type FormData = {
+    name: string;
+    password: string;
+    email: string;
+};
 
-    React.useLayoutEffect(() => {
-        fetch("http://localhost:5000/refresh_token", {
-            method: "POST",
-            credentials: "include",
-        }).then(async (req) => {
-            const { accessToken } = await req.json();
+export const Register = () => {
+    const { register, handleSubmit } = useForm<FormData>();
+    const onSubmit = handleSubmit((data) => console.log(data));
 
-            setAccessToken(accessToken);
-            setLoading(false);
-        });
-    }, []);
-    return loading;
+    return (
+        <div className={styles.FormWrapper}>
+            <form onSubmit={onSubmit}>
+                <label>Name</label>
+                <input {...register("name")} />
+                <label>E-mail</label>
+                <input {...register("email")} />
+                <label>Password</label>
+                <input {...register("password")} />
+                <div>
+                    <button type="submit">Register</button> or{" "}
+                    <Link to={"/login"}>Login</Link>
+                </div>
+            </form>
+        </div>
+    );
 };
 ```
 
-а в `App.tsx` добавим вызов хука
+Аналогично сделайте страницу Login только без поля "name"
+
+`1.3` Добавим в `src/lib/accessToken.ts` проверку на авторизацию. Здесь мы декодируем jwt токен и проверяем пришел ли нам userId, если нет значит мы не авторизованы.
 
 ```typescript
-import { useRefreshToken } from "./hooks/useRefreshToken";
+interface AccessTokenPayload {
+    userId: number;
+}
 
+export const isAuthSelector = () => {
+    try {
+        return jwtDecode<AccessTokenPayload>(accessToken).userId !== undefined;
+    } catch {
+        return false;
+    }
+};
+```
+
+`1.4` Создадим файл `src/RoutesContainer.tsx` и добавим
+
+```typescript
+import React from "react";
+import { Navigate, Route, Routes, useLocation } from "react-router-dom";
+import { isAuthSelector } from "./lib/accessToken";
+import { Login } from "./pages/Login";
+import { Register } from "./pages/Register";
+import { TodoList } from "./pages/TodoList";
+
+export const RoutesContainer: React.FC = () => {
+    return (
+        <Routes>
+            <Route
+                path="/"
+                element={
+                    <RequireAuth>
+                        <TodoList />
+                    </RequireAuth>
+                }
+            />
+
+            <Route path="login" element={<Login />} />
+            <Route path="register" element={<Register />} />
+        </Routes>
+    );
+};
+
+const RequireAuth = ({ children }: { children: JSX.Element }) => {
+    let isAuth = isAuthSelector();
+    let location = useLocation();
+
+    if (!isAuth) {
+        return <Navigate to="/login" state={{ from: location }} replace />;
+    }
+
+    return children;
+};
+```
+
+Из компонента `src/App.tsx` вынесите jsx тудулиста в отдельный компонент в `src/pages/TodoList.tsx`
+
+```typescript
+import React from "react";
+import styles from "../styles/App.module.css";
+
+export const TodoList: React.FC = () => {
+    return (
+        <div className={styles.App}>
+            <div>
+                <h3>What to learn</h3>
+                <div>
+                    <input />
+                    <button>+</button>
+                </div>
+                <ul>
+                    <li>
+                        <input type="checkbox" checked={true} />{" "}
+                        <span>HTML&CSS</span>
+                    </li>
+                    <li>
+                        <input type="checkbox" checked={true} /> <span>JS</span>
+                    </li>
+                    <li>
+                        <input type="checkbox" checked={false} />{" "}
+                        <span>React</span>
+                    </li>
+                </ul>
+                <div>
+                    <button>All</button>
+                    <button>Active</button>
+                    <button>Completed</button>
+                </div>
+            </div>
+        </div>
+    );
+};
+```
+
+а в `App.tsx` возвращайте RoutesContainer
+
+```typescript
 function App() {
-    // this code
     const loading = useRefreshToken();
 
     if (loading) {
         return <>Загрузка...</>;
     }
-    // end this code
 
-    // some code
-    // return jsx
+    return <RoutesContainer />;
 }
 ```
 
-На этом базовая настройка клиента завершена и теперь уже можно запрашивать данные, регистрироваться и авторизовываться.
+### 3. Приступим к регистрации.
 
-## Learn More
+`3.1` Найдите в документации [http://localhost:5000/graphql](http://localhost:5000/graphql) мутацию register(...): User!
 
-To learn more about Next.js, take a look at the following resources:
+Для регистрации нам нужно передать 3 аргумента
 
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+> name: String!
+>
+> password: String!
+>
+> email: String!
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+В поле ввода напишем
+
+```graphql
+mutation Register($email: String!, $password: String!, $name: String!) {
+    register(email: $email, password: $password, name: $name) {
+        id
+        name
+        email
+    }
+}
+```
+
+> $email, $password и $name это наши переменные.
+
+Внизу найдите `QUERY VARIABLES` здесь мы пишем параметры в формате JSON. Среда playground graphql подсказывает что мы должны туда написать (ctrl + space)
+
+```graphql
+{
+  "email": "test@example.com",
+  "name": "Your name",
+  "password": "12345678"
+}
+```
+
+Нажимаем Execute Query (Ctrl + Enter) (Кнопка Play) и мы успешно зарегистрировались и получили обратно данные которые мы запросили в мутации.
+
+`3.2` А теперь сделаем тоже самое только в компоненте `src/pages/TodoList.tsx`.
+
+Импортируем
+
+```typescript
+import { gql, useMutation } from "@apollo/client";
+```
+
+Добавим мутацию с использованием gql.
+
+```typescript
+const registerMutation = gql`
+    mutation Register($email: String!, $password: String!, $name: String!) {
+        register(email: $email, password: $password, name: $name) {
+            id
+            name
+            email
+        }
+    }
+`;
+```
+
+Так же ниже пропишем типизацию возвращаемых данных с сервера.
+
+> Знак register`?` в типе RegisterMutationType означает, что данные могут не прийти из за ошибки в аргументах или на сервере.
+
+```typescript
+interface UserData {
+    id: number;
+    email: string;
+    name: string;
+}
+
+interface RegisterMutationType {
+    register?: UserData;
+}
+```
+
+В компоненте `TodoList` вверху используем хук useMutation()
+
+> useMutation<Тип возвращаемых данных, Тип принимающих аргументов>()
+>
+> Хук возвращает массив где первым элементом будет функция, вторым дополнительные параметры (Нам пока не пригодится)
+
+```typescript
+const [userRegister] = useMutation<RegisterMutationType, FormData>(
+    registerMutation
+);
+```
+
+А теперь отредактируем функцию onSubmit
+
+```typescript
+const onSubmit = handleSubmit(({ email, name, password }) => {
+    userRegister({
+        variables: { email, name, password },
+    });
+});
+//# or
+const onSubmit = handleSubmit((data) => {
+    userRegister({
+        variables: data,
+    });
+});
+```
+
+Проверьте вкладку network отправили ли мы запрос и с каким данными, а так же что получили обратно.
+
+> q: А что будет если придет ошибка? мы же не увидим ее?
+>
+> a: Если придет ошибка мы сможем увидеть ее только во вкладке network. Так давайте это исправим.
+
+Функция userRegister возвращаем промис, а значит мы можем дождаться выполнения запроса и проконтролировать, что все прошло успешно.
+
+1. Добавьте перед функцией callback async
+2. Дождемся результата выполнения функции userRegister и запишем в переменную result
+3. Проверим пришли ли нам какие либо ошибки. if (result.errors) {}
+4. Если пришли, то выведем alert()
+
+```typescript
+const onSubmit = handleSubmit(async (data) => {
+    const result = await userRegister({
+        variables: data,
+    });
+
+    if (result.errors) {
+        alert(result.errors[0].message);
+    }
+});
+```
+
+> q: Все хорошо и ошибок нет, Я зарегистрировался?
+>
+> a: Да. Но войти в аккаунт нужно самому, так настроен сервер. (Возможно временно)
+>
+> q: Я слышал, что в graphql есть автотипизация, так зачем мы ее пишем сами?
+>
+> a: Почти верно. Есть специальные библиотеки для автоматической типизации, создания хуков для упрощения работы. Например: GraphQL Code Generator. Сделаем с его помощью страницу входа. Хорошо?
+
+### 4. Настройка GraphQL Code Generator
