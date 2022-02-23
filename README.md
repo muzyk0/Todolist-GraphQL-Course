@@ -25,7 +25,7 @@
 Для начала создадим Next.JS проект:
 
 ```bash
-npx create-next-app todolist-grpahql-course --use-npm --example "https://github.com/muzyk0/TodoList-GraphQL-Web-NextJs"
+npx create-react-app my-app --template typescript --use-npm --example "https://github.com/muzyk0/TodoList-GraphQL-Web-NextJs"
 ```
 
 А теперь проверим что все работает запустив проект
@@ -108,6 +108,7 @@ export const createApolloClient = () => {
     );
 
     const client = new ApolloClient({
+        ssrMode: typeof window === undefined,
         link: ApolloLink.from([
             new TokenRefreshLink({
                 accessTokenField: "accessToken",
@@ -182,70 +183,63 @@ export const createApolloClient = () => {
 };
 ```
 
-4. А теперь подключим Apollo Provider в `_app.tsx`
+4. Теперь подключим Apollo Provider в `index.tsx`
 
 ```typescript
-import { createApolloClient } from "../lib/apolloClient";
+import { createApolloClient } from "./lib/apolloClient";
 
-function MyApp({ Component, pageProps }: AppProps) {
-    return (
-        <ApolloProvider client={createApolloClient()}>
-            <Component {...pageProps} />)
-        </ApolloProvider>
-    );
-}
+ReactDOM.render(
+    <ApolloProvider client={createApolloClient()}>
+        <App />
+    </ApolloProvider>,
+    document.getElementById("root")
+);
 ```
 
-5. Так как для работы с тудулистом нам потрубется авторизация, то настроем сначала ее.
-
-### Так как мы работает с graphQL, то у нас есть уже готовая документация API и находится она по адресу [http://localhost:5000](http://localhost:5000)
-
-В файле `components/layout/layout.tsx` отправим запрос `Me` и проверим авторизованны мы или нет.
-
-Импортируем
+5. Так же в компоненте `App` при первой отрисовки мы будем запрашивать у сервера актуальный accessToken и сохранять в глобальном состоянии приложения, по этому создадим кастомный хук `hooks/useRefreshToken.ts`
 
 ```typescript
-import { gql, useQuery } from "@apollo/client";
+import React from "react";
+import { setAccessToken } from "../lib/accessToken";
+
+export const useRefreshToken = () => {
+    const [loading, setLoading] = React.useState(true);
+
+    React.useLayoutEffect(() => {
+        fetch("http://localhost:5000/refresh_token", {
+            method: "POST",
+            credentials: "include",
+        }).then(async (req) => {
+            const { accessToken } = await req.json();
+
+            setAccessToken(accessToken);
+            setLoading(false);
+        });
+    }, []);
+    return loading;
+};
 ```
 
-Это наш запрос за данными об авторизации. В ответ мы получим null если не авторизованы или данные которые мы запросим.
+а в `App.tsx` добавим вызов хука
 
 ```typescript
-const meQuery = gql`
-    query Me {
-        me {
-            id
-            email
-            name
-        }
+import { useRefreshToken } from "./hooks/useRefreshToken";
+
+function App() {
+    // this code
+    const loading = useRefreshToken();
+
+    if (loading) {
+        return <>Загрузка...</>;
     }
-`;
-```
+    // end this code
 
-Так же ниже пропишем типизацию
-
-```typescript
-interface Me {
-    id: number;
-    email: string;
-    name: string;
-}
-
-interface meQueryType {
-    me: Me | null;
+    // some code
+    // return jsx
 }
 ```
 
-В компоненте `Layout` используем хук useQuery.
-Он нам вернет
-
-1. data - данные которые мы запросили
-2. loading - boolean флаг загрузки
-3. error - ошибка если что то пошло не так.
-
-```typescript
-const { data, loading, error } = useQuery<meQueryType>(meQuery);
-```
+На этом базовая настройка клиента завершена и теперь уже можно запрашивать данные, регистрироваться и авторизовываться.
 
 ## Learn More
 
