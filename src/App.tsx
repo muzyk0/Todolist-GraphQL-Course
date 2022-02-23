@@ -1,7 +1,14 @@
 import React from "react";
+import { useRefreshToken } from "./hooks/useRefreshToken";
 import styles from "./styles/App.module.css";
 
 function App() {
+    const loading = useRefreshToken();
+
+    if (loading) {
+        return <>Загрузка...</>;
+    }
+
     return (
         <div className={styles.App}>
             <div>
