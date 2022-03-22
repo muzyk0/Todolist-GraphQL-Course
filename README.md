@@ -1,12 +1,12 @@
-# Мини курс по GraphQL
+# Tutorial по GraphQL
 
-> Вам не удалось запустить сервер, веб или что то пошло не так. А может у вас есть вопросы?
+> Вам не удалось запустить сервер, веб или что-то пошло не так. А может у вас есть вопросы?
 >
 > [Telegram](https://t.me/ru9art) - `@ru9art`
 
 ## Для работы с API сервера нам понадобится сам сервер, Docker, Docker-Compose, Bash
 
-> Пока не получилось задеплоить сервер на хостинг
+> Пока не получилось задеплоить сервер на хостинг прийдется включать сервер локально.
 >
 > Скачать сервер можно по [ссылке](https://github.com/muzyk0/Todolist-GraphQL-server). Как его запустить написано в `README.md`
 >
@@ -16,25 +16,31 @@
 >
 > 2. Впишите любые символы в `ACCESS_TOKEN_SECRET=` и `REFRESH_TOKEN_SECRET=`
 >
-> например `ACCESS_TOKEN_SECRET=234sdsdf23fmn1v51fon`
+> например `ACCESS_TOKEN_SECRET=234sdsdf23fmn1v51fon` и `REFRESH_TOKEN_SECRET=2938jksdklfbyr378dhkjavf`
 >
 > 3. Запустите `bash create_docker_db.sh` и дождитесь когда выполнение команды закончится
 >
 > 4. Запустите `start_dev_docker.sh`
 
-Для начала создадим Next.JS проект:
+Для скачаем стартовый проект https://github.com/muzyk0/todolist-graphql-course/tree/L0_get-started
+
+Скачаем все зависимости
 
 ```bash
-npx create-react-app my-app --template typescript --use-npm --example "https://github.com/muzyk0/TodoList-GraphQL-Web-NextJs"
+yarn install
+
+#or
+
+yarn
 ```
 
 А теперь проверим что все работает запустив проект
 
 ```bash
-yarn dev
+yarn start
 ```
 
-Откройте [http://localhost:3000](http://localhost:3000) в своем браузере что бы увидеть результат.
+Откройте [http://localhost:3000](http://localhost:3000) в своем браузере, чтобы увидеть результат.
 
 ## В первую очередь настроем наш Apollo Client
 
@@ -46,7 +52,7 @@ npm install @apollo/client graphql jwt-decode apollo-link-token-refresh
 yarn add @apollo/client graphql jwt-decode apollo-link-token-refresh
 ```
 
-2. Мы будет сохранять Access Token в стейт менеджере и по этому давайте сразу подготовим для этого функцию в файле, а хранить пока что мы будет в обычной переменной.
+2. Мы будем сохранять Access Token в стейт менеджере и по этому давайте сразу подготовим для этого функцию в файле, а хранить пока что будем в обычной переменной.
 
 ```typescript
 export let accessToken = "";
@@ -220,7 +226,7 @@ export const useRefreshToken = () => {
 };
 ```
 
-а в `App.tsx` добавим вызов хука
+А в `App.tsx` добавим вызов хука
 
 ```typescript
 import { useRefreshToken } from "./hooks/useRefreshToken";
@@ -239,13 +245,4 @@ function App() {
 }
 ```
 
-На этом базовая настройка клиента завершена и теперь уже можно запрашивать данные, регистрироваться и авторизовываться.
-
-## Learn More
-
-To learn more about Next.js, take a look at the following resources:
-
--   [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
--   [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
-
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js/) - your feedback and contributions are welcome!
+На этом базовая настройка клиента завершена.
