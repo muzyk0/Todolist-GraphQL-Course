@@ -4,6 +4,24 @@
 >
 > [Telegram](https://t.me/ru9art) - `@ru9art`
 
+## Для работы с API сервера нам понадобится сам сервер, Docker, Docker-Compose, Bash
+
+> Пока не получилось задеплоить сервер на хостинг прийдется включать сервер локально.
+>
+> Скачать сервер можно по [ссылке](https://github.com/muzyk0/Todolist-GraphQL-server). Как его запустить написано в `README.md`
+>
+> Но так же продублирую здесь.
+>
+> 1. В папке `deploy/dev` продублируйте файл `.env.example` и переименуйте в `.env`
+>
+> 2. Впишите любые символы в `ACCESS_TOKEN_SECRET=` и `REFRESH_TOKEN_SECRET=`
+>
+> например `ACCESS_TOKEN_SECRET=234sdsdf23fmn1v51fon` и `REFRESH_TOKEN_SECRET=2938jksdklfbyr378dhkjavf`
+>
+> 3. Запустите `bash create_docker_db.sh` и дождитесь когда выполнение команды закончится
+>
+> 4. Запустите `start_dev_docker.sh`
+
 ## Приступим к реализации регистрации и авторизации пользователя.
 
 #### Так как мы работаем с graphQL, то у нас есть уже готовая документация API и находится она по адресу [http://localhost:5000/graphql](http://localhost:5000/graphql)
@@ -225,9 +243,9 @@ mutation Register($email: String!, $password: String!, $name: String!) {
 
 ```json
 {
-  "email": "test@example.com",
-  "name": "Your name",
-  "password": "12345678"
+    "email": "test@example.com",
+    "name": "Your name",
+    "password": "12345678"
 }
 ```
 
@@ -320,17 +338,18 @@ const onSubmit = handleSubmit(async (data) => {
 
     if (result.errors) {
         alert(result.errors[0].message);
-        return
+        return;
     }
 });
 ```
 
 И добавим редирект на страницу входа.
+
 ```typescript
 // В начало компонента
 const navigate = useNavigate();
 
-// В конец функции onSubmit 
+// В конец функции onSubmit
 navigate("/login", { replace: true });
 ```
 
@@ -347,20 +366,22 @@ navigate("/login", { replace: true });
 `4.1` Документация [Installing Codegen](https://www.graphql-code-generator.com/docs/getting-started/installation)
 
 Добавляем зависимость
-````bash
+
+```bash
 yarn add @graphql-codegen/cli -D
-````
+```
 
 И запускаем инициализацию graphql-codegen init
-````bash
-yarn graphql-codegen init
-````
 
-````
-Если отмечено **, то это значение не является значением по умолчанию 
+```bash
+yarn graphql-codegen init
+```
+
+```
+Если отмечено **, то это значение не является значением по умолчанию
 и его нужно изменить. (Значения по умолчанию актуальны на Март 2022 года)
 
-1. What type of application are you building? Application built with React 
+1. What type of application are you building? Application built with React
 2. ** Where is your schema?: (path or url) http://localhost:5000/graphql
 3. ** Where are your operations and fragments?: src/graphql/**/*.graphql
 4. Pick plugins: TypeScript (required by other typescript plugins), TypeScript Operations (operations and fragments), TypeScript React Apollo (typed components and HOCs)
@@ -370,32 +391,33 @@ yarn graphql-codegen init
 8. ** What script in package.json should run the codegen? gen
 
 Не забудьте запустить # yarn install
-````
+```
 
 Теперь в package.json у нас появился новый скрипт для генерации хуков, типизации и прочего.
 
-````bash
+```bash
 yarn gen
-````
+```
 
 #### И так же заранее настроем codegen.yml
 
 ```yaml
 config:
-  withHOC: false
-  withComponent: false
-  withHooks: true
-  namingConvention:
-    enumValues: keep
+    withHOC: false
+    withComponent: false
+    withHooks: true
+    namingConvention:
+        enumValues: keep
 ```
 
 Добавьте на один уровень с plugins.
+
 > Здесь отключаем генерацию HOC'ов и Components
 >
 > enumValues: keep - Не преобразуем enum с сервера. (Оставляем регистр символов таким же)
 
+Получаем примерно так:
 
-Получаем примерно так: 
 ```yaml
 overwrite: true
 schema: "http://localhost:5000/graphql"
@@ -412,7 +434,6 @@ generates:
             withHooks: true
             namingConvention:
                 enumValues: keep
-
 ```
 
 ### 5. Приступим к авторизации.
@@ -423,30 +444,31 @@ generates:
 
 ```graphql endpoint
 mutation Login($password: String!, $email: String!) {
-  login(password: $password, email: $email) {
-    accessToken
-  }
+    login(password: $password, email: $email) {
+        accessToken
+    }
 }
 ```
 
-В `QUERY VARIABLES` 
+В `QUERY VARIABLES`
+
 ```json
 {
-  "password": "your password",
-  "email": "your email"
+    "password": "your password",
+    "email": "your email"
 }
 ```
 
 В ответ получаем `accessToken` и запишем его в `HTTP HEADERS`
 
-````json
+```json
 {
-  "authorization": "Bearer your_access_token"
+    "authorization": "Bearer your_access_token"
 }
-````
+```
 
->Q: Что такое Token?
-> 
+> Q: Что такое Token?
+>
 > A: [Habr](https://habr.com/ru/company/vk/blog/115163/), а расшифровать его можно здесь [https://jwt.io/](https://jwt.io/)
 
 `5.2` Теперь сделаем все то же самое только в нашем React приложении.
@@ -462,10 +484,11 @@ yarn gen
 Хук useLoginMutation сгенерировался автоматически и нам осталось его только вызвать вверху компонента.
 
 ```typescript
-const [login] = useLoginMutation()
+const [login] = useLoginMutation();
 ```
 
 Так же перепишем функцию onSubmit
+
 1. Добавьте перед функцией callback `async` (Внутри handleSubmit)
 2. Вызовем функцию `login` и передадим значения нашей формы
 3. Дождемся результата выполнения и запишем в переменную `result`
@@ -474,17 +497,17 @@ const [login] = useLoginMutation()
 6. Установим новый AccessToken. Оператор ?? называется [Оператор нулевого слияния](https://learn.javascript.ru/nullish-coalescing-operator)
 
 ```typescript
-const onSubmit = handleSubmit(async ({password, email}) => {
+const onSubmit = handleSubmit(async ({ password, email }) => {
     const result = await login({
         variables: {
             password,
-            email
-        }
-    })
+            email,
+        },
+    });
 
     if (result.errors) {
         alert(result.errors[0].message);
-        return
+        return;
     }
 
     setAccessToken(result.data?.login.accessToken ?? "");
@@ -492,14 +515,14 @@ const onSubmit = handleSubmit(async ({password, email}) => {
 ```
 
 И добавим редирект на главную страницу.
+
 ```typescript
 // В начало компонента
 const navigate = useNavigate();
 
-// В конец функции onSubmit 
+// В конец функции onSubmit
 navigate("/", { replace: true });
 ```
-
 
 Весь код страницы `Login`
 
@@ -554,12 +577,11 @@ export const Login = () => {
         </div>
     );
 };
-
 ```
 
 ### 5. Напоследок давайте отобразив наш логин и реализуем выход из аккаунта.
 
-В первую очередь нам нужно добавить мутацию и запрос для получения имени. 
+В первую очередь нам нужно добавить мутацию и запрос для получения имени.
 
 В `src/graphql/user.graphql` добавьте и снова сгенерируйте graphql.tsx
 
@@ -585,13 +607,8 @@ yarn gen
 import React from "react";
 
 export const Header: React.FC = () => {
-    return (
-        <header style={{ display: "flex", gap: "10px" }}>
-            Header
-        </header>
-    );
+    return <header style={{ display: "flex", gap: "10px" }}>Header</header>;
 };
-
 ```
 
 Компонент Layout в `src/components/layout/Layout.tsx`
@@ -608,7 +625,6 @@ export const Layout: React.FC = ({ children }) => {
         </>
     );
 };
-
 ```
 
 В `src/App.tsx` оберните RoutesContainer в Layout
@@ -627,16 +643,18 @@ return (
 ```
 
 1. В компонент Header.tsx импортируем недавно сгенерированные хуки и вызовите их в компоненте.
+
 ```typescript
 // Для редиректа на страницу авторизации после выхода
 const navigate = useNavigate();
 
 // Сразу забираем с помощью деструктуризации data и loading
-const { data, loading } = useMeQuery(); 
+const { data, loading } = useMeQuery();
 const [logout] = useLogoutMutation();
 ```
 
 2. Добавим обработчик будущей кнопки выхода из аккаунта
+
 ```typescript
 const onLogoutClick = async () => {
     const result = await logout();
@@ -655,6 +673,7 @@ const onLogoutClick = async () => {
 ```
 
 3. И саму разметку
+
 ```typescript jsx
 return (
     <header style={{ display: "flex", gap: "10px" }}>
@@ -675,15 +694,14 @@ return (
 
 Теперь в шапке сайта будет отображаться имя пользователя и кнопка выхода или кнопки регистрации и авторизации если не авторизованы.
 
-
-
 > Q: Почему авторизация и выход с аккаунта работает только с перезагрузкой страницы?
-> 
+>
 > A: Так как у Apollo есть кэш, будем его обнулять. Так же нужно сделать и в Login.tsx
+>
 > ```typescript
 > // Деструктуризацией из дополнительных параметром заберм "client"
 > const [logout, { client }] = useLogoutMutation();
-> 
+>
 > // А в onLogoutClick после setAccessToken("") добавьте
 > client.resetStore();
 > ```
@@ -738,8 +756,10 @@ export const Header: React.FC = () => {
 };
 ```
 
-### Попробуйте реализовать сами еще несколько запросов и мутаций. 
-#### Например: 
+### Попробуйте реализовать сами еще несколько запросов и мутаций.
+
+#### Например:
+
 1. Добавление нового тудулиста.
 2. Вывод всех ваших тудулистов.
 3. Редактирование (Изменение названия или описания).
