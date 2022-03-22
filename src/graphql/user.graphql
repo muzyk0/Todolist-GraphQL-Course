@@ -1,0 +1,15 @@
+query Me {
+    me {
+        name
+    }
+}
+
+mutation Login($password: String!, $email: String!) {
+    login(password: $password, email: $email) {
+        accessToken
+    }
+}
+
+mutation Logout {
+    logout
+}

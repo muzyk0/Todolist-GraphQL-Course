@@ -16,6 +16,8 @@
         "jwt-decode": "^3.1.2",
         "react": "^17.0.2",
         "react-dom": "^17.0.2",
+        "react-hook-form": "^7.27.1",
+        "react-router-dom": "6",
         "react-scripts": "5.0.0",
         "typescript": "~4.5.5"
     },
@@ -23,7 +25,8 @@
         "start": "react-scripts start",
         "build": "react-scripts build",
         "test": "react-scripts test",
-        "eject": "react-scripts eject"
+        "eject": "react-scripts eject",
+        "gen": "graphql-codegen --config codegen.yml"
     },
     "eslintConfig": {
         "extends": "react-app"
@@ -39,5 +42,11 @@
             "last 1 firefox version",
             "last 1 safari version"
         ]
+    },
+    "devDependencies": {
+        "@graphql-codegen/cli": "^2.6.2",
+        "@graphql-codegen/typescript": "2.4.7",
+        "@graphql-codegen/typescript-operations": "2.3.4",
+        "@graphql-codegen/typescript-react-apollo": "3.2.10"
     }
 }

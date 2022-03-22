@@ -5,10 +5,13 @@ import App from "./App";
 import * as serviceWorker from "./serviceWorker";
 import { ApolloProvider } from "@apollo/client";
 import { createApolloClient } from "./lib/apolloClient";
+import { BrowserRouter } from "react-router-dom";
 
 ReactDOM.render(
     <ApolloProvider client={createApolloClient()}>
-        <App />
+        <BrowserRouter>
+            <App />
+        </BrowserRouter>
     </ApolloProvider>,
     document.getElementById("root")
 );
